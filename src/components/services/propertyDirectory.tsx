@@ -112,44 +112,69 @@ export function PropertyDirectory() {
 
   const [sortBy, sortOrder] = urlSort.split(":");
 
-  const { data, isLoading, isError, refetch } = useQuery<PropertiesApiPayload>({
-    queryKey: ["properties", urlPage, urlSearch, urlType, sortBy, sortOrder],
-    queryFn: async () => {
-      const params: Record<string, string | number> = {
-        page: urlPage,
-        limit: 9,
-      };
-      if (urlSearch) params.searchTerm = urlSearch;
-      if (urlType) params.propertyType = urlType;
-      if (sortBy) params.sortBy = sortBy;
-      if (sortOrder) params.sortOrder = sortOrder;
-
-      const response = (await apiClient.get("/properties", {
-        params,
-      })) as unknown as {
-        data:
-          | PropertyRecord[]
-          | { data: PropertyRecord[]; meta?: PropertiesApiPayload["meta"] };
-        meta?: PropertiesApiPayload["meta"];
-      };
-
-      if (Array.isArray(response?.data)) {
-        return {
-          data: response.data,
-          meta: response.meta,
+  const { data, isLoading, isError, error, refetch } =
+    useQuery<PropertiesApiPayload>({
+      queryKey: ["properties", urlPage, urlSearch, urlType, sortBy, sortOrder],
+      queryFn: async () => {
+        const params: Record<string, string | number> = {
+          page: urlPage,
+          limit: 9,
         };
-      }
+        if (urlSearch) params.searchTerm = urlSearch;
+        if (urlType) params.propertyType = urlType;
+        if (urlSort !== "createdAt:desc") {
+          if (sortBy) params.sortBy = sortBy;
+          if (sortOrder) params.sortOrder = sortOrder;
+        }
 
-      if (response?.data && Array.isArray(response.data.data)) {
-        return {
-          data: response.data.data,
-          meta: response.data.meta || response.meta,
+        const response = (await apiClient.get("/properties", {
+          params,
+        })) as unknown as {
+          data?:
+            | PropertyRecord[]
+            | {
+                data?: PropertyRecord[];
+                properties?: PropertyRecord[];
+                items?: PropertyRecord[];
+                meta?: PropertiesApiPayload["meta"];
+                pagination?: {
+                  total?: number;
+                  totalPages?: number;
+                  page?: number;
+                };
+              };
+          meta?: PropertiesApiPayload["meta"];
+          pagination?: { total?: number; totalPages?: number; page?: number };
         };
-      }
 
-      return { data: [] };
-    },
-  });
+        const rawData = response?.data;
+        let list: PropertyRecord[] = [];
+
+        if (Array.isArray(rawData)) {
+          list = rawData;
+        } else if (rawData && typeof rawData === "object") {
+          list = rawData.data || rawData.properties || rawData.items || [];
+        }
+
+        const metaObj =
+          (!Array.isArray(rawData) ? rawData?.meta : undefined) ||
+          response?.meta;
+        const pagObj =
+          (!Array.isArray(rawData) ? rawData?.pagination : undefined) ||
+          response?.pagination;
+
+        return {
+          data: Array.isArray(list) ? list : [],
+          meta: {
+            page: metaObj?.page ?? pagObj?.page ?? urlPage,
+            limit: metaObj?.limit ?? 9,
+            total: metaObj?.total ?? pagObj?.total ?? list.length,
+            totalPages: metaObj?.totalPages ?? pagObj?.totalPages ?? 1,
+          },
+        };
+      },
+      retry: 1,
+    });
 
   const properties = data?.data || [];
   const totalPages = data?.meta?.totalPages || 1;
