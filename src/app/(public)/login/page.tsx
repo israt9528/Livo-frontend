@@ -13,7 +13,7 @@ export default function LoginPage() {
   return (
     <div className="mx-auto flex min-h-[75vh] max-w-7xl items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
       <Suspense
-        fallback={<Skeleton className="h-[460px] w-full max-w-md rounded-xl" />}
+        fallback={<Skeleton className="h-115 w-full max-w-md rounded-xl" />}
       >
         <LoginForm />
       </Suspense>

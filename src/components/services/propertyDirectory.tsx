@@ -112,69 +112,67 @@ export function PropertyDirectory() {
 
   const [sortBy, sortOrder] = urlSort.split(":");
 
-  const { data, isLoading, isError, error, refetch } =
-    useQuery<PropertiesApiPayload>({
-      queryKey: ["properties", urlPage, urlSearch, urlType, sortBy, sortOrder],
-      queryFn: async () => {
-        const params: Record<string, string | number> = {
-          page: urlPage,
-          limit: 9,
-        };
-        if (urlSearch) params.searchTerm = urlSearch;
-        if (urlType) params.propertyType = urlType;
-        if (urlSort !== "createdAt:desc") {
-          if (sortBy) params.sortBy = sortBy;
-          if (sortOrder) params.sortOrder = sortOrder;
-        }
+  const { data, isLoading, isError, refetch } = useQuery<PropertiesApiPayload>({
+    queryKey: ["properties", urlPage, urlSearch, urlType, sortBy, sortOrder],
+    queryFn: async () => {
+      const params: Record<string, string | number> = {
+        page: urlPage,
+        limit: 9,
+      };
+      if (urlSearch) params.searchTerm = urlSearch;
+      if (urlType) params.propertyType = urlType;
+      if (urlSort !== "createdAt:desc") {
+        if (sortBy) params.sortBy = sortBy;
+        if (sortOrder) params.sortOrder = sortOrder;
+      }
 
-        const response = (await apiClient.get("/properties", {
-          params,
-        })) as unknown as {
-          data?:
-            | PropertyRecord[]
-            | {
-                data?: PropertyRecord[];
-                properties?: PropertyRecord[];
-                items?: PropertyRecord[];
-                meta?: PropertiesApiPayload["meta"];
-                pagination?: {
-                  total?: number;
-                  totalPages?: number;
-                  page?: number;
-                };
+      const response = (await apiClient.get("/properties", {
+        params,
+      })) as unknown as {
+        data?:
+          | PropertyRecord[]
+          | {
+              data?: PropertyRecord[];
+              properties?: PropertyRecord[];
+              items?: PropertyRecord[];
+              meta?: PropertiesApiPayload["meta"];
+              pagination?: {
+                total?: number;
+                totalPages?: number;
+                page?: number;
               };
-          meta?: PropertiesApiPayload["meta"];
-          pagination?: { total?: number; totalPages?: number; page?: number };
-        };
+            };
+        meta?: PropertiesApiPayload["meta"];
+        pagination?: { total?: number; totalPages?: number; page?: number };
+      };
 
-        const rawData = response?.data;
-        let list: PropertyRecord[] = [];
+      const rawData = response?.data;
+      let list: PropertyRecord[] = [];
 
-        if (Array.isArray(rawData)) {
-          list = rawData;
-        } else if (rawData && typeof rawData === "object") {
-          list = rawData.data || rawData.properties || rawData.items || [];
-        }
+      if (Array.isArray(rawData)) {
+        list = rawData;
+      } else if (rawData && typeof rawData === "object") {
+        list = rawData.data || rawData.properties || rawData.items || [];
+      }
 
-        const metaObj =
-          (!Array.isArray(rawData) ? rawData?.meta : undefined) ||
-          response?.meta;
-        const pagObj =
-          (!Array.isArray(rawData) ? rawData?.pagination : undefined) ||
-          response?.pagination;
+      const metaObj =
+        (!Array.isArray(rawData) ? rawData?.meta : undefined) || response?.meta;
+      const pagObj =
+        (!Array.isArray(rawData) ? rawData?.pagination : undefined) ||
+        response?.pagination;
 
-        return {
-          data: Array.isArray(list) ? list : [],
-          meta: {
-            page: metaObj?.page ?? pagObj?.page ?? urlPage,
-            limit: metaObj?.limit ?? 9,
-            total: metaObj?.total ?? pagObj?.total ?? list.length,
-            totalPages: metaObj?.totalPages ?? pagObj?.totalPages ?? 1,
-          },
-        };
-      },
-      retry: 1,
-    });
+      return {
+        data: Array.isArray(list) ? list : [],
+        meta: {
+          page: metaObj?.page ?? pagObj?.page ?? urlPage,
+          limit: metaObj?.limit ?? 9,
+          total: metaObj?.total ?? pagObj?.total ?? list.length,
+          totalPages: metaObj?.totalPages ?? pagObj?.totalPages ?? 1,
+        },
+      };
+    },
+    retry: 1,
+  });
 
   const properties = data?.data || [];
   const totalPages = data?.meta?.totalPages || 1;
@@ -290,7 +288,7 @@ export function PropertyDirectory() {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, idx) => (
             <Card key={idx} className="overflow-hidden border-slate-200">
-              <Skeleton className="aspect-[16/10] w-full rounded-none" />
+              <Skeleton className="aspect-16/10 w-full rounded-none" />
               <CardHeader className="space-y-2">
                 <Skeleton className="h-5 w-3/4" />
                 <Skeleton className="h-3.5 w-1/2" />
@@ -364,7 +362,7 @@ export function PropertyDirectory() {
                   key={property.id}
                   className="flex flex-col overflow-hidden border-slate-200 bg-white transition-shadow hover:shadow-lg"
                 >
-                  <div className="relative aspect-[16/10] w-full bg-slate-100">
+                  <div className="relative aspect-16/10 w-full bg-slate-100">
                     <Image
                       src={imageUrl}
                       alt={property.title}
