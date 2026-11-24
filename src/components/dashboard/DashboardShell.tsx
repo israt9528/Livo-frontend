@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -9,9 +10,11 @@ import {
   Home,
   LayoutDashboard,
   LogOut,
+  Menu,
   ShieldCheck,
   Users,
   Wrench,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore, type UserRole } from "@/store/auth-store";
@@ -95,8 +98,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const clearSession = useAuthStore((s) => s.clearSession);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const activeRole: UserRole = user?.role || "TENANT";
+  const inferredRoleFromPath: UserRole | null = pathname.startsWith(
+    "/dashboard/admin",
+  )
+    ? "ADMIN"
+    : pathname.startsWith("/dashboard/owner")
+      ? "OWNER"
+      : pathname.startsWith("/dashboard/tenant")
+        ? "TENANT"
+        : null;
+
+  const activeRole: UserRole = user?.role || inferredRoleFromPath || "TENANT";
   const navItems = ROLE_NAV[activeRole] || ROLE_NAV.TENANT;
 
   const handleLogout = () => {
@@ -106,90 +120,127 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     router.refresh();
   };
 
+  const sidebarContent = (
+    <>
+      <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-6">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
+          <Building2 className="h-4 w-4" />
+        </div>
+        <span className="text-lg font-bold tracking-tight text-slate-900">
+          Livo
+        </span>
+        <Badge
+          variant="secondary"
+          className="ml-auto bg-emerald-50 text-[10px] font-semibold text-emerald-700"
+        >
+          {activeRole}
+        </Badge>
+      </div>
+
+      <nav className="flex-1 space-y-1 p-4">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="border-t border-slate-200 p-4 space-y-3">
+        <div className="rounded-lg bg-slate-50 p-3">
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {user?.name || user?.fullName || "Authenticated User"}
+          </p>
+          <p className="truncate text-xs text-slate-500">
+            {user?.email || `${activeRole.toLowerCase()}@livo.com`}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Link
+            href="/"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            <Home className="h-3.5 w-3.5" />
+            Public Site
+          </Link>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+          >
+            <LogOut className="mr-1.5 h-3.5 w-3.5" />
+            Logout
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex min-h-screen bg-slate-50">
-      {/* Sidebar */}
-      <aside className="hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
-        <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
-            <Building2 className="h-4 w-4" />
-          </div>
-          <span className="text-lg font-bold tracking-tight text-slate-900">
-            Livo
-          </span>
-          <Badge
-            variant="secondary"
-            className="ml-auto bg-emerald-50 text-[10px] font-semibold text-emerald-700"
-          >
-            {activeRole}
-          </Badge>
-        </div>
+      {/* Desktop Sidebar */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
+        {sidebarContent}
+      </aside>
 
-        <nav className="flex-1 space-y-1 p-4">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="border-t border-slate-200 p-4 space-y-3">
-          <div className="rounded-lg bg-slate-50 p-3">
-            <p className="truncate text-sm font-semibold text-slate-900">
-              {user?.name || user?.fullName || "Authenticated User"}
-            </p>
-            <p className="truncate text-xs text-slate-500">
-              {user?.email || `${activeRole.toLowerCase()}@livo.com`}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href="/"
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+      {/* Mobile Slide-Out Sidebar */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div
+            className="fixed inset-0 bg-slate-900/40"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <aside className="relative z-10 flex w-64 flex-col bg-white shadow-xl">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="absolute right-3 top-4 rounded-md p-1 text-slate-500 hover:bg-slate-100"
+              aria-label="Close sidebar"
             >
-              <Home className="h-3.5 w-3.5" />
-              Public Site
-            </Link>
+              <X className="h-5 w-5" />
+            </button>
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-8">
+          <div className="flex items-center gap-3 text-sm text-slate-600">
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              onClick={handleLogout}
-              className="text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+              size="icon"
+              onClick={() => setMobileMenuOpen(true)}
+              className="md:hidden"
+              aria-label="Open navigation menu"
             >
-              <LogOut className="mr-1.5 h-3.5 w-3.5" />
-              Logout
+              <Menu className="h-4 w-4" />
             </Button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <div className="flex flex-1 flex-col">
-        {/* Top Mobile / Status Header */}
-        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-8">
-          <div className="flex items-center gap-2 text-sm text-slate-600">
             <ShieldCheck className="h-4 w-4 text-emerald-600" />
             <span>
               Workspace:{" "}
               <strong className="text-slate-900">{activeRole}</strong>
             </span>
           </div>
-          <div className="flex items-center gap-3 lg:hidden">
+          <div className="flex items-center gap-3 md:hidden">
             <Button variant="outline" size="sm" onClick={handleLogout}>
               Logout
             </Button>
