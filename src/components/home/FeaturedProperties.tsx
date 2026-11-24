@@ -65,7 +65,7 @@ export function FeaturedProperties() {
                 key={idx}
                 className="overflow-hidden border-slate-200 bg-white"
               >
-                <Skeleton className="aspect-[16/10] w-full rounded-none" />
+                <Skeleton className="aspect-16/10 w-full rounded-none" />
                 <CardHeader className="space-y-2">
                   <Skeleton className="h-5 w-3/4" />
                   <Skeleton className="h-3.5 w-1/2" />
@@ -94,7 +94,7 @@ export function FeaturedProperties() {
                   key={property.id}
                   className="overflow-hidden border-slate-200 bg-white transition-all hover:shadow-lg"
                 >
-                  <div className="relative aspect-[16/10] w-full bg-slate-100">
+                  <div className="relative aspect-16/10 w-full bg-slate-100">
                     <Image
                       src={imageUrl}
                       alt={property.title}
