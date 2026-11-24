@@ -21,10 +21,25 @@ interface ViewingRequestItem {
   id: string;
   status?: string;
   preferredDate?: string;
-  notes?: string;
+  note?: string | null;
+  notes?: string | null;
   createdAt?: string;
   property?: { id?: string; title?: string; city?: string };
-  room?: { id?: string; roomNumber?: string; name?: string };
+  room?: {
+    id?: string;
+    roomNumber?: string;
+    name?: string;
+    rentAmount?: string | number;
+    unit?: {
+      unitNumber?: string;
+      property?: {
+        id?: string;
+        title?: string;
+        city?: string;
+        address?: string;
+      };
+    };
+  };
   tenant?: { id?: string; name?: string; fullName?: string; email?: string };
 }
 
@@ -33,18 +48,26 @@ function extractList<T>(res: unknown): T[] {
     data?:
       | T[]
       | {
-          data?: T[];
+          data?: T[] | { requests?: T[]; items?: T[]; viewings?: T[] };
           items?: T[];
+          requests?: T[];
           viewingRequests?: T[];
+          viewing_requests?: T[];
           viewings?: T[];
         };
   };
   if (Array.isArray(obj?.data)) return obj.data;
   if (obj?.data && typeof obj.data === "object") {
+    const nested = obj.data.data;
+    if (Array.isArray(nested)) return nested;
+    if (nested && typeof nested === "object") {
+      return nested.requests || nested.items || nested.viewings || [];
+    }
     return (
-      obj.data.data ||
+      obj.data.requests ||
       obj.data.items ||
       obj.data.viewingRequests ||
+      obj.data.viewing_requests ||
       obj.data.viewings ||
       []
     );
@@ -145,11 +168,17 @@ export function ViewingsManager() {
               {viewings.map((item) => {
                 const statusUpper = (item.status || "PENDING").toUpperCase();
                 const isPending = statusUpper === "PENDING";
+                const propertyTitle =
+                  item.room?.unit?.property?.title ||
+                  item.property?.title ||
+                  "Rental Property";
+                const unitNumber = item.room?.unit?.unitNumber;
                 const roomLabel = item.room?.roomNumber || item.room?.name;
                 const tenantLabel =
                   item.tenant?.name ||
                   item.tenant?.fullName ||
                   item.tenant?.email;
+                const noteText = item.note || item.notes;
                 const isRowBusy =
                   updateStatusMutation.isPending && updatingId === item.id;
 
@@ -161,8 +190,9 @@ export function ViewingsManager() {
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium text-slate-900">
-                          {item.property?.title || "Rental Property"}
-                          {roomLabel ? ` — Room ${roomLabel}` : ""}
+                          {propertyTitle}
+                          {unitNumber ? ` · Unit ${unitNumber}` : ""}
+                          {roomLabel ? ` · ${roomLabel}` : ""}
                         </p>
                         <Badge className={viewingStatusBadge(item.status)}>
                           {statusUpper}
@@ -176,13 +206,11 @@ export function ViewingsManager() {
                             ? new Date(item.preferredDate).toLocaleDateString()
                             : "TBD"}
                         </span>
-                        {isOwner && tenantLabel && (
-                          <span>Tenant: {tenantLabel}</span>
-                        )}
+                        {tenantLabel && <span>Tenant: {tenantLabel}</span>}
                       </p>
-                      {item.notes && (
+                      {noteText && (
                         <p className="text-xs text-slate-600">
-                          &ldquo;{item.notes}&rdquo;
+                          &ldquo;{noteText}&rdquo;
                         </p>
                       )}
                     </div>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
+  CalendarCheck,
   CreditCard,
   FileText,
   Home,
@@ -68,6 +69,11 @@ const ROLE_NAV: Record<UserRole, NavItem[]> = {
       href: "/dashboard/owner/payments",
       icon: CreditCard,
     },
+    {
+      label: "Viewing Requests",
+      href: "/dashboard/owner/viewings",
+      icon: CalendarCheck,
+    },
   ],
   TENANT: [
     {
@@ -89,6 +95,11 @@ const ROLE_NAV: Record<UserRole, NavItem[]> = {
       label: "Rent & Utilities",
       href: "/dashboard/tenant/payments",
       icon: Wrench,
+    },
+    {
+      label: "Viewing Requests",
+      href: "/dashboard/tenant/viewings",
+      icon: CalendarCheck,
     },
   ],
 };

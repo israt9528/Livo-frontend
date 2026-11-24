@@ -362,7 +362,10 @@ export function PropertyDirectory() {
                   key={property.id}
                   className="flex flex-col overflow-hidden border-slate-200 bg-white transition-shadow hover:shadow-lg"
                 >
-                  <div className="relative aspect-16/10 w-full bg-slate-100">
+                  <Link
+                    href={`/services/${property.id}`}
+                    className="relative block aspect-16/10 w-full bg-slate-100"
+                  >
                     <Image
                       src={imageUrl}
                       alt={property.title}
@@ -383,12 +386,15 @@ export function PropertyDirectory() {
                         {property.status}
                       </Badge>
                     )}
-                  </div>
+                  </Link>
 
                   <CardHeader className="pb-2">
-                    <h3 className="line-clamp-1 text-lg font-bold text-slate-900">
+                    <Link
+                      href={`/services/${property.id}`}
+                      className="line-clamp-1 text-lg font-bold text-slate-900 transition-colors hover:text-emerald-700"
+                    >
                       {property.title}
-                    </h3>
+                    </Link>
                     <p className="flex items-center gap-1 text-xs text-slate-500">
                       <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
                       <span className="line-clamp-1">
@@ -406,7 +412,7 @@ export function PropertyDirectory() {
                     </p>
                   </CardContent>
 
-                  <CardFooter className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-6 py-3.5">
+                  <CardFooter className="flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-3.5">
                     <div>
                       <span className="text-lg font-bold text-emerald-700">
                         {property.rentAmount
@@ -417,15 +423,25 @@ export function PropertyDirectory() {
                         <span className="text-xs text-slate-500"> / mo</span>
                       )}
                     </div>
-                    <Link
-                      href={`/dashboard?propertyId=${property.id}`}
-                      className={cn(
-                        buttonVariants({ size: "sm" }),
-                        "bg-emerald-600 text-white hover:bg-emerald-700",
-                      )}
-                    >
-                      Request Viewing
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/dashboard?propertyId=${property.id}`}
+                        className={cn(
+                          buttonVariants({ size: "sm", variant: "outline" }),
+                        )}
+                      >
+                        Request Viewing
+                      </Link>
+                      <Link
+                        href={`/services/${property.id}`}
+                        className={cn(
+                          buttonVariants({ size: "sm" }),
+                          "bg-emerald-600 text-white hover:bg-emerald-700",
+                        )}
+                      >
+                        View Details
+                      </Link>
+                    </div>
                   </CardFooter>
                 </Card>
               );
