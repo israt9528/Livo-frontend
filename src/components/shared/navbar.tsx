@@ -14,6 +14,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -40,24 +41,52 @@ const NAV_LINKS = [
   { href: "/contact", label: "Contact" },
 ];
 
-export const getDashboardRouteByRole = (role?: UserRole): string => {
-  switch (role) {
+export const getDashboardRouteByRole = (role?: UserRole | string): string => {
+  switch (role?.toUpperCase()) {
     case "ADMIN":
-      return "/admin";
+      return "/dashboard/admin";
     case "OWNER":
-      return "/provider";
+      return "/dashboard/owner";
     case "TENANT":
     default:
-      return "/dashboard";
+      return "/dashboard/tenant";
   }
 };
+
+function decodeJwtUser(token?: string | null): {
+  email?: string;
+  role?: UserRole;
+  name?: string;
+} | null {
+  if (!token) return null;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const claims = JSON.parse(atob(base64)) as Record<string, unknown>;
+    const email = typeof claims.email === "string" ? claims.email : undefined;
+    const role =
+      typeof claims.role === "string"
+        ? (claims.role.toUpperCase() as UserRole)
+        : undefined;
+    const name =
+      typeof claims.name === "string"
+        ? claims.name
+        : email
+          ? email.split("@")[0]
+          : "Member";
+    return { email, role, name };
+  } catch {
+    return null;
+  }
+}
 
 const emptySubscribe = () => () => {};
 
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const store = useAuthStore();
   const mounted = useSyncExternalStore(
     emptySubscribe,
     () => true,
@@ -65,14 +94,59 @@ export function Navbar() {
   );
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const rawToken =
+    mounted && typeof window !== "undefined"
+      ? (() => {
+          const direct =
+            localStorage.getItem("accessToken") ||
+            localStorage.getItem("livo_token");
+          if (direct) return direct;
+
+          const persisted = localStorage.getItem("livo-auth-storage");
+          if (!persisted) return null;
+          try {
+            const parsed = JSON.parse(persisted) as {
+              state?: { token?: string; accessToken?: string };
+            };
+            return parsed?.state?.token || parsed?.state?.accessToken || null;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
+
+  const decoded = decodeJwtUser(rawToken);
+  const activeUser = store.user
+    ? store.user
+    : decoded
+      ? {
+          name: decoded.name || "Member",
+          email: decoded.email || "",
+          role: decoded.role || ("TENANT" as UserRole),
+          avatarUrl: "",
+        }
+      : null;
+
+  const isLoggedIn =
+    mounted && Boolean(store.isAuthenticated || activeUser || rawToken);
+
   const handleLogout = () => {
-    logout();
+    store.logout();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("livo_token");
+      localStorage.removeItem("livo-auth-storage");
+      document.cookie = "livo_role=; path=/; max-age=0; SameSite=Lax";
+      document.cookie = "livo_token=; path=/; max-age=0; SameSite=Lax";
+    }
     toast.success("Logged out successfully");
     router.push("/login");
     router.refresh();
   };
 
-  const dashboardHref = getDashboardRouteByRole(user?.role);
+  const dashboardHref = getDashboardRouteByRole(activeUser?.role);
+  const displayName = activeUser?.name || "Member";
+  const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur supports-backdrop-filter:bg-white/80">
@@ -110,7 +184,7 @@ export function Navbar() {
 
         {/* Desktop Auth / Role Actions */}
         <div className="hidden md:flex md:items-center md:gap-3">
-          {mounted && isAuthenticated && user ? (
+          {isLoggedIn ? (
             <>
               <Link
                 href={dashboardHref}
@@ -123,32 +197,52 @@ export function Navbar() {
                 Dashboard
               </Link>
 
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleLogout}
+                className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              >
+                <LogOut className="h-4 w-4" />
+                Log out
+              </Button>
+
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label="User menu"
                   className="relative flex h-9 w-9 items-center justify-center rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Avatar className="h-9 w-9 border border-slate-200">
-                    <AvatarImage src={user.avatarUrl || ""} alt={user.name} />
+                    <AvatarImage
+                      src={activeUser?.avatarUrl || ""}
+                      alt={displayName}
+                    />
                     <AvatarFallback className="bg-emerald-50 font-semibold text-emerald-700">
-                      {user.name.slice(0, 2).toUpperCase()}
+                      {initials}
                     </AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {user.name}
-                      </p>
-                      <p className="text-xs leading-none text-slate-500">
-                        {user.email}
-                      </p>
-                      <span className="mt-1 inline-block w-fit rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                        {user.role}
-                      </span>
-                    </div>
-                  </DropdownMenuLabel>
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {displayName}
+                        </p>
+                        {activeUser?.email && (
+                          <p className="text-xs leading-none text-slate-500">
+                            {activeUser.email}
+                          </p>
+                        )}
+                        {activeUser?.role && (
+                          <span className="mt-1 inline-block w-fit rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                            {activeUser.role}
+                          </span>
+                        )}
+                      </div>
+                    </DropdownMenuLabel>
+                  </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => router.push(dashboardHref)}>
                     <LayoutDashboard className="mr-2 h-4 w-4" />
@@ -225,7 +319,7 @@ export function Navbar() {
                   </Link>
                 ))}
                 <div className="my-2 border-t border-slate-200" />
-                {mounted && isAuthenticated && user ? (
+                {isLoggedIn ? (
                   <>
                     <Link
                       href={dashboardHref}
@@ -236,7 +330,7 @@ export function Navbar() {
                       )}
                     >
                       <LayoutDashboard className="mr-2 h-4 w-4" />
-                      Go to {user.role} Dashboard
+                      Go to {activeUser?.role || "My"} Dashboard
                     </Link>
                     <Button
                       variant="outline"

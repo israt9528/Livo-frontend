@@ -34,6 +34,8 @@ interface RentalApplication {
   property?: { id?: string; title?: string; rentAmount?: number };
   propertyId?: string;
   tenantId?: string;
+  room?: { id?: string; roomNumber?: string; name?: string };
+  roomId?: string;
 }
 
 interface LeaseRecord {
@@ -139,9 +141,10 @@ export function OwnerLeasesManager() {
       return apiClient.post("/leases", {
         applicationId: selectedApp.id,
         propertyId: selectedApp.property?.id || selectedApp.propertyId,
+        roomId: selectedApp.room?.id || selectedApp.roomId,
         tenantId: selectedApp.tenant?.id || selectedApp.tenantId,
-        startDate,
-        endDate,
+        startDate: new Date(startDate).toISOString(),
+        endDate: new Date(endDate).toISOString(),
         monthlyRent: Number(monthlyRent),
         depositAmount: Number(depositAmount),
       });

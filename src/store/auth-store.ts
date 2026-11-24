@@ -16,14 +16,30 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   token: string | null;
-  setSession: (user: AuthUser, token: string | null) => void;
+  accessToken: string | null;
+  isAuthenticated: boolean;
+  setSession: (user: AuthUser | null, token: string | null) => void;
   clearSession: () => void;
 }
 
-function writeAuthCookies(user: AuthUser, token: string | null) {
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = atob(base64);
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function writeAuthCookies(role: string | undefined, token: string | null) {
   if (typeof document === "undefined") return;
-  const maxAge = 60 * 60 * 24 * 7; // 7 days
-  document.cookie = `livo_role=${encodeURIComponent(user.role)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  const maxAge = 60 * 60 * 24 * 7;
+  if (role) {
+    document.cookie = `livo_role=${encodeURIComponent(role)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  }
   if (token) {
     document.cookie = `livo_token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`;
   }
@@ -40,19 +56,61 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       token: null,
+      accessToken: null,
+      isAuthenticated: false,
       setSession: (user, token) => {
-        if (typeof window !== "undefined" && token) {
-          localStorage.setItem("accessToken", token);
+        const claims = token ? decodeJwtPayload(token) : null;
+        const resolvedRole = (
+          user?.role ||
+          (typeof claims?.role === "string" ? claims.role : "TENANT")
+        ).toUpperCase() as UserRole;
+
+        const resolvedUser: AuthUser | null =
+          user || claims
+            ? {
+                id:
+                  user?.id ||
+                  (typeof claims?.userId === "string" ? claims.userId : "") ||
+                  (typeof claims?.id === "string" ? claims.id : "user"),
+                email:
+                  user?.email ||
+                  (typeof claims?.email === "string" ? claims.email : ""),
+                name: user?.name || user?.fullName,
+                role: resolvedRole,
+              }
+            : null;
+
+        if (typeof window !== "undefined") {
+          if (token) {
+            localStorage.setItem("accessToken", token);
+            localStorage.setItem("livo_token", token);
+          }
+          if (resolvedUser?.role) {
+            localStorage.setItem("livo_role", resolvedUser.role);
+          }
         }
-        writeAuthCookies(user, token);
-        set({ user, token });
+
+        writeAuthCookies(resolvedUser?.role, token);
+        set({
+          user: resolvedUser,
+          token,
+          accessToken: token,
+          isAuthenticated: Boolean(token || resolvedUser),
+        });
       },
       clearSession: () => {
         if (typeof window !== "undefined") {
           localStorage.removeItem("accessToken");
+          localStorage.removeItem("livo_token");
+          localStorage.removeItem("livo_role");
         }
         clearAuthCookies();
-        set({ user: null, token: null });
+        set({
+          user: null,
+          token: null,
+          accessToken: null,
+          isAuthenticated: false,
+        });
       },
     }),
     {

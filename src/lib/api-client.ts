@@ -28,9 +28,25 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken;
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (typeof window !== "undefined") {
+    let token =
+      localStorage.getItem("accessToken") || localStorage.getItem("livo_token");
+
+    if (!token) {
+      const persisted = localStorage.getItem("livo-auth-storage");
+      if (persisted) {
+        try {
+          const parsed = JSON.parse(persisted);
+          token = parsed?.state?.token || parsed?.state?.accessToken || null;
+        } catch {
+          // ignore malformed JSON
+        }
+      }
+    }
+
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
