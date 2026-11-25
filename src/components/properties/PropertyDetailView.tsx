@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,6 +10,7 @@ import {
   CalendarPlus,
   CheckCircle2,
   FilePlus,
+  Images,
   Loader2,
   MapPin,
 } from "lucide-react";
@@ -47,6 +49,12 @@ interface UnitDetail {
   rooms?: RoomDetail[];
 }
 
+interface PropertyImageEntry {
+  url?: string;
+  imageUrl?: string;
+  src?: string;
+}
+
 interface PropertyDetail {
   id: string;
   title: string;
@@ -55,8 +63,37 @@ interface PropertyDetail {
   city?: string;
   rentAmount?: string | number;
   status?: string;
+  images?: Array<string | PropertyImageEntry>;
+  media?: PropertyImageEntry[];
   owner?: { name?: string; fullName?: string; email?: string };
   units?: UnitDetail[];
+}
+
+const FALLBACK_PROPERTY_IMAGE =
+  "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80";
+
+function extractPropertyImages(property?: PropertyDetail | null): string[] {
+  if (!property) return [FALLBACK_PROPERTY_IMAGE];
+
+  const urls: string[] = [];
+  const rawList = [
+    ...(Array.isArray(property.images) ? property.images : []),
+    ...(Array.isArray(property.media) ? property.media : []),
+  ];
+
+  for (const entry of rawList) {
+    if (typeof entry === "string" && entry.trim()) {
+      urls.push(entry.trim());
+    } else if (entry && typeof entry === "object") {
+      const candidate = entry.url || entry.imageUrl || entry.src;
+      if (typeof candidate === "string" && candidate.trim()) {
+        urls.push(candidate.trim());
+      }
+    }
+  }
+
+  const uniqueUrls = Array.from(new Set(urls));
+  return uniqueUrls.length > 0 ? uniqueUrls : [FALLBACK_PROPERTY_IMAGE];
 }
 
 function extractItem<T>(res: unknown): T | null {
@@ -100,12 +137,21 @@ function extractList<T>(res: unknown): T[] {
 
 export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   const queryClient = useQueryClient();
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [prevPropertyId, setPrevPropertyId] = useState(propertyId);
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [preferredDate, setPreferredDate] = useState("2026-12-05");
   const [moveInDate, setMoveInDate] = useState("2026-12-15");
   const [intendedDurationMonths, setIntendedDurationMonths] = useState("12");
   const [notes, setNotes] = useState("");
+
+  if (prevPropertyId !== propertyId) {
+    setPrevPropertyId(propertyId);
+    setActiveImageIndex(0);
+    setSelectedUnitId("");
+    setSelectedRoomId("");
+  }
 
   const {
     data: property,
@@ -118,6 +164,14 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
       return extractItem<PropertyDetail>(res);
     },
   });
+
+  const galleryImages = extractPropertyImages(property);
+  const safeImageIndex =
+    activeImageIndex < galleryImages.length ? activeImageIndex : 0;
+  const currentImage =
+    galleryImages[safeImageIndex] ||
+    galleryImages[0] ||
+    FALLBACK_PROPERTY_IMAGE;
 
   const { data: fetchedUnits = [] } = useQuery<UnitDetail[]>({
     queryKey: ["property-detail-units", propertyId],
@@ -221,7 +275,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
     return (
       <div className="mx-auto max-w-6xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
         <Skeleton className="h-8 w-40" />
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-96 w-full" />
       </div>
     );
   }
@@ -264,7 +318,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
       {/* Property Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Building2 className="h-6 w-6 text-emerald-600" />
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               {property.title}
@@ -291,6 +345,54 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
             <p className="text-xl font-bold text-slate-900">
               ${Number(property.rentAmount).toLocaleString()}/mo
             </p>
+          </div>
+        )}
+      </div>
+
+      {/* Multi-Image Gallery */}
+      <div className="space-y-3">
+        <div className="relative aspect-video max-h-115 w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+          <Image
+            src={currentImage}
+            alt={`${property.title} - photo ${safeImageIndex + 1}`}
+            fill
+            className="object-cover"
+            sizes="(max-width: 1024px) 100vw, 1152px"
+            priority
+          />
+          <div className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-md bg-slate-900/80 px-2.5 py-1 text-xs font-medium text-white">
+            <Images className="h-3.5 w-3.5" />
+            {safeImageIndex + 1} / {galleryImages.length}
+          </div>
+        </div>
+
+        {galleryImages.length > 1 && (
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {galleryImages.map((imgUrl, index) => {
+              const isSelected = index === safeImageIndex;
+              return (
+                <button
+                  key={`${imgUrl}-${index}`}
+                  type="button"
+                  onClick={() => setActiveImageIndex(index)}
+                  className={cn(
+                    "relative h-20 w-28 shrink-0 overflow-hidden rounded-lg border transition-all",
+                    isSelected
+                      ? "border-emerald-600 ring-2 ring-emerald-500/40"
+                      : "border-slate-200 opacity-75 hover:opacity-100",
+                  )}
+                  aria-label={`View photo ${index + 1}`}
+                >
+                  <Image
+                    src={imgUrl}
+                    alt={`${property.title} thumbnail ${index + 1}`}
+                    fill
+                    className="object-cover"
+                    sizes="120px"
+                  />
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
