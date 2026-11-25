@@ -36,16 +36,10 @@ const ROLE_NAV: Record<UserRole, NavItem[]> = {
       href: "/dashboard/admin",
       icon: LayoutDashboard,
     },
-    { label: "All Users", href: "/dashboard/admin/users", icon: Users },
     {
-      label: "Properties Registry",
-      href: "/dashboard/admin/properties",
-      icon: Building2,
-    },
-    {
-      label: "Payments & Logs",
-      href: "/dashboard/admin/payments",
-      icon: CreditCard,
+      label: "Users & Registry",
+      href: "/dashboard/admin/oversight",
+      icon: ShieldCheck,
     },
   ],
   OWNER: [
@@ -104,6 +98,14 @@ const ROLE_NAV: Record<UserRole, NavItem[]> = {
   ],
 };
 
+function normalizeRole(role?: string | null): UserRole | null {
+  const upper = role?.toUpperCase();
+  if (upper === "ADMIN" || upper === "OWNER" || upper === "TENANT") {
+    return upper;
+  }
+  return null;
+}
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -121,8 +123,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         ? "TENANT"
         : null;
 
-  const activeRole: UserRole = user?.role || inferredRoleFromPath || "TENANT";
-  const navItems = ROLE_NAV[activeRole] || ROLE_NAV.TENANT;
+  const activeRole: UserRole =
+    normalizeRole(user?.role) || inferredRoleFromPath || "TENANT";
+  const navItems = ROLE_NAV[activeRole] ?? ROLE_NAV.TENANT;
+  const roleRootPath = `/dashboard/${activeRole.toLowerCase()}`;
 
   const handleLogout = () => {
     clearSession();
@@ -151,7 +155,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <nav className="flex-1 space-y-1 p-4">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          const isRootItem = item.href === roleRootPath;
+          const isActive = isRootItem
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
           return (
             <Link
               key={item.href}
@@ -171,7 +179,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         })}
       </nav>
 
-      <div className="border-t border-slate-200 p-4 space-y-3">
+      <div className="space-y-3 border-t border-slate-200 p-4">
         <div className="rounded-lg bg-slate-50 p-3">
           <p className="truncate text-sm font-semibold text-slate-900">
             {user?.name || user?.fullName || "Authenticated User"}
