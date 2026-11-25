@@ -18,6 +18,8 @@ interface AuthState {
   token: string | null;
   accessToken: string | null;
   isAuthenticated: boolean;
+  hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
   setSession: (user: AuthUser | null, token: string | null) => void;
   clearSession: () => void;
 }
@@ -58,6 +60,8 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       accessToken: null,
       isAuthenticated: false,
+      hasHydrated: false,
+      setHasHydrated: (state) => set({ hasHydrated: state }),
       setSession: (user, token) => {
         const claims = token ? decodeJwtPayload(token) : null;
         const resolvedRole = (
@@ -115,6 +119,9 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "livo-auth-storage",
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

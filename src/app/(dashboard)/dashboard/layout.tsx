@@ -4,9 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
-import { useAuthStore } from "@/store/useAuthStore";
-
-type AppRole = "ADMIN" | "OWNER" | "TENANT";
+import { useAuthStore, type UserRole } from "@/store/auth-store";
 
 function dashboardHomeForRole(role?: string | null): string {
   switch (role?.toUpperCase()) {
@@ -20,7 +18,7 @@ function dashboardHomeForRole(role?: string | null): string {
   }
 }
 
-function requiredRoleForPath(pathname: string): AppRole | null {
+function requiredRoleForPath(pathname: string): UserRole | null {
   const segment = pathname.split("/")[2]?.toUpperCase();
   if (segment === "ADMIN" || segment === "OWNER" || segment === "TENANT") {
     return segment;
@@ -35,19 +33,15 @@ export default function DashboardSectionLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, isLoading } = useAuthStore() as {
-    user?: { role?: string | null } | null;
-    isAuthenticated?: boolean;
-    isLoading?: boolean;
-  };
+  const { user, isAuthenticated, hasHydrated } = useAuthStore();
 
-  const userRole = user?.role?.toUpperCase() as AppRole | undefined;
+  const userRole = user?.role?.toUpperCase() as UserRole | undefined;
   const requiredRole = requiredRoleForPath(pathname || "");
   const isAuthorized =
     Boolean(userRole) && (!requiredRole || userRole === requiredRole);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!hasHydrated) return;
 
     if (!isAuthenticated && !userRole) {
       const redirectParam = encodeURIComponent(pathname || "/dashboard");
@@ -58,9 +52,9 @@ export default function DashboardSectionLayout({
     if (userRole && requiredRole && userRole !== requiredRole) {
       router.replace(dashboardHomeForRole(userRole));
     }
-  }, [isLoading, isAuthenticated, userRole, requiredRole, pathname, router]);
+  }, [hasHydrated, isAuthenticated, userRole, requiredRole, pathname, router]);
 
-  if (isLoading || !isAuthorized) {
+  if (!hasHydrated || !isAuthorized) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="flex items-center gap-2.5 text-sm font-medium text-slate-600">

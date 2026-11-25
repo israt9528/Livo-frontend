@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface LeaseOption {
   id: string;
-  monthlyRent?: number;
+  monthlyRent?: number | string;
   status?: string;
   property?: { title?: string };
   room?: { roomNumber?: string; name?: string };
@@ -28,7 +28,7 @@ interface LeaseOption {
 
 interface PaymentRecord {
   id: string;
-  amount?: number;
+  amount?: number | string;
   type?: string;
   status?: string;
   billingMonth?: string;
@@ -45,7 +45,13 @@ function extractList<T>(res: unknown): T[] {
     data?:
       | T[]
       | {
-          data?: T[];
+          data?:
+            | T[]
+            | {
+                items?: T[];
+                leases?: T[];
+                payments?: T[];
+              };
           items?: T[];
           leases?: T[];
           payments?: T[];
@@ -53,13 +59,12 @@ function extractList<T>(res: unknown): T[] {
   };
   if (Array.isArray(obj?.data)) return obj.data;
   if (obj?.data && typeof obj.data === "object") {
-    return (
-      obj.data.data ||
-      obj.data.items ||
-      obj.data.leases ||
-      obj.data.payments ||
-      []
-    );
+    const nested = obj.data.data;
+    if (Array.isArray(nested)) return nested;
+    if (nested && typeof nested === "object") {
+      return nested.payments || nested.leases || nested.items || [];
+    }
+    return obj.data.payments || obj.data.leases || obj.data.items || [];
   }
   return [];
 }
@@ -131,7 +136,7 @@ export function TenantPaymentsManager() {
   });
 
   const totalPaid = payments.reduce(
-    (sum, item) => sum + (typeof item.amount === "number" ? item.amount : 0),
+    (sum, item) => sum + (Number(item.amount) || 0),
     0,
   );
 
